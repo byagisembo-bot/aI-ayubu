@@ -1,0 +1,113 @@
+
+<!DOCTYPE html>
+<html lang="rw"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>V16 SHOP V5.1 ONLINE</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<style>*{box-sizing:border-box;font-family:system-ui;margin:0;padding:0}body{background:#f5f5f7;display:flex;justify-content:center;min-height:100vh}.app{width:100%;max-width:480px;background:#fff;min-height:100vh;display:flex;flex-direction:column}.header{padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:20}.logo{font-weight:900}.badge{padding:4px 10px;border-radius:99px;font-size:10px;font-weight:800}.b-admin{background:#000;color:#fff}.b-staff{background:#3b82f6;color:#fff}.b-client{background:#e5e7eb}.logout{color:#ef4444;font-weight:800;font-size:12px;cursor:pointer}.status{font-size:10px;padding:3px 8px;border-radius:99px;font-weight:800}.online{background:#dcfce7;color:#166534}.offline{background:#fee2e2;color:#991b1b}.login{padding:36px 22px;flex:1;display:flex;flex-direction:column;justify-content:center}input,select,textarea{width:100%;padding:14px 15px;border:2px solid #e5e7eb;border-radius:14px;font-size:14px;margin-bottom:10px}.btn{width:100%;padding:14px;background:#0a0a0a;color:#fff;border:none;border-radius:14px;font-weight:700;cursor:pointer}.btn-sec{background:#fff;color:#000;border:2px solid #000}.btn-red{background:#ef4444}.btn-green{background:#10b981}.tabs{display:flex;gap:5px;padding:10px 12px;border-bottom:1px solid #e5e7eb;overflow-x:auto;background:#fafafa;position:sticky;top:57px;z-index:10}.tab{padding:7px 13px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid #e5e7eb;background:#fff}.tab.active{background:#000;color:#fff}.content{padding:14px;flex:1}.card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:12px;margin-bottom:10px;position:relative}.shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.cart-box{background:#000;color:#fff;border-radius:16px;padding:14px;margin-bottom:14px}.hidden{display:none}.small{font-size:11px;color:#9ca3af;text-align:center;margin:12px 0;line-height:1.4}.row2{display:flex;gap:8px}.row2>*{flex:1}.del{position:absolute;top:10px;right:10px;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:5px 9px;font-size:10px;cursor:pointer}.edit{position:absolute;top:10px;right:56px;background:#000;color:#fff;border:none;border-radius:8px;padding:5px 9px;font-size:10px;cursor:pointer}</style></head><body><div class="app">
+<div class="header hidden" id="header"><div style="display:flex;gap:8px;align-items:center"><div class="logo">V16 SHOP</div><span id="netStatus" class="status online">● ONLINE</span></div><div style="display:flex;gap:8px;align-items:center"><div id="cartBtn" class="hidden" style="background:#000;color:#fff;padding:6px 12px;border-radius:99px;font-size:12px;cursor:pointer" onclick="goTab('cart')">🛒 <span id="cartCount">0</span></div><span id="roleBadge" class="badge"></span><span class="logout" onclick="logout()">Sohoka</span></div></div>
+<div id="loginPage" class="login"><h1>V16 SHOP V5.1</h1><p style="text-align:center;color:#888;font-size:13px;margin-bottom:10px">ONLINE + OFFLINE - v16-shop</p><p id="seedMsg" class="small" style="color:#3b82f6;font-weight:700"></p>
+<input id="u" placeholder="Username" value="admin"><input id="p" type="password" placeholder="Password" value="1234">
+<button class="btn" onclick="doLogin()">Injira</button>
+<div class="small">Admin: admin / 1234<br>Staff: staff / 1234<br>Client: 211 / 211<br><br>✅ Staff yakomeza gukora n'iyo Admin ari offline<br>✅ Data isync iyo internet igarutse<br>✅ Phone 2 zibona kimwe LIVE!</div></div>
+<div id="mainApp" class="hidden" style="flex:1;display:flex;flex-direction:column"><div class="tabs" id="tabs"></div><div class="content" id="content"></div></div>
+</div>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCya-Z3cEniZA3BmLoX0aEH2h2qUzkeerg",
+  authDomain: "v16-shop.firebaseapp.com",
+  projectId: "v16-shop",
+  storageBucket: "v16-shop.firebasestorage.app",
+  messagingSenderId: "758167145033",
+  appId: "1:758167145033:web:6f4e016e5102beb0bb8d98",
+  measurementId: "G-3TP8W2GFCF"
+};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.firestore();
+db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+let me=null, curTab='dashboard', CART=[], prods=[], orders=[], usersCache=[], isOnline=true;
+window.addEventListener('online',()=>{isOnline=true;document.getElementById('netStatus').textContent='● ONLINE';document.getElementById('netStatus').className='status online'});
+window.addEventListener('offline',()=>{isOnline=false;document.getElementById('netStatus').textContent='● OFFLINE - Staff ikomeza';document.getElementById('netStatus').className='status offline'});
+async function seedIfEmpty(){
+  document.getElementById('seedMsg').textContent='⏳ Turimo gukora database bwa mbere...';
+  const uSnap=await db.collection('users').limit(1).get();
+  if(uSnap.empty){
+    await db.collection('users').add({u:'admin',p:'1234',role:'admin',name:'Admin Mukuru'});
+    await db.collection('users').add({u:'staff',p:'1234',role:'staff',name:'Staff'});
+    await db.collection('users').add({u:'211',p:'211',role:'client',name:'Client 211'});
+  }
+  const pSnap=await db.collection('products').limit(1).get();
+  if(pSnap.empty){
+    await db.collection('products').add({name:'Inkweto Sneakers',buy:20000,sell:35000,qty:10,img:'',desc:'Size 42',created:Date.now()});
+    await db.collection('products').add({name:'Urusenda Jean',buy:18000,sell:30000,qty:15,img:'',desc:'Quality',created:Date.now()});
+    await db.collection('products').add({name:'Amashu T-Shirt',buy:10000,sell:20000,qty:20,img:'',desc:'V16',created:Date.now()});
+  }
+  document.getElementById('seedMsg').textContent='✅ Database yakozwe! Injira nonaha';
+}
+function listenData(){
+  db.collection('products').orderBy('created','desc').onSnapshot(snap=>{prods=snap.docs.map(d=>({id:d.id,...d.data()}));if(['shop','products','dashboard'].includes(curTab)) goTab(curTab);});
+  db.collection('orders').orderBy('created','desc').onSnapshot(snap=>{orders=snap.docs.map(d=>({id:d.id,...d.data()}));if(['orders','myorders','dashboard'].includes(curTab)) goTab(curTab);});
+  db.collection('users').onSnapshot(snap=>{usersCache=snap.docs.map(d=>({docId:d.id,...d.data()}));if(curTab==='users') goTab(curTab);});
+}
+async function doLogin(){
+  const u=document.getElementById('u').value.trim(),p=document.getElementById('p').value.trim();
+  document.getElementById('seedMsg').textContent='⏳ Turimo kubona user...';
+  let snap=await db.collection('users').where('u','==',u).where('p','==',p).get();
+  if(snap.empty){
+    await seedIfEmpty();
+    snap=await db.collection('users').where('u','==',u).where('p','==',p).get();
+    if(snap.empty){alert('Nabi! Gerageza admin / 1234');document.getElementById('seedMsg').textContent='❌ Nta user - Kanda Injira nanone';return}
+  }
+  me=snap.docs[0].data(); me.docId=snap.docs[0].id;
+  localStorage.setItem('v5_sess',JSON.stringify(me));
+  listenData(); render();
+}
+function logout(){localStorage.removeItem('v5_sess');me=null;document.getElementById('loginPage').classList.remove('hidden');document.getElementById('header').classList.add('hidden');document.getElementById('mainApp').classList.add('hidden');}
+function render(){
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('header').classList.remove('hidden');
+  document.getElementById('mainApp').classList.remove('hidden');
+  document.getElementById('roleBadge').textContent=me.role.toUpperCase();
+  document.getElementById('roleBadge').className='badge b-'+me.role;
+  if(me.role!=='admin') document.getElementById('cartBtn').classList.remove('hidden');
+  let tabs=[];if(me.role==='admin'){tabs=[{id:'dashboard',l:'📊 Dashboard'},{id:'products',l:'📦 Stock'},{id:'orders',l:'🧾 Orders'},{id:'users',l:'👥 Users'},{id:'add',l:'➕ Ongeramo'},{id:'settings',l:'⚙️ Settings'}];curTab='dashboard'}else if(me.role==='staff'){tabs=[{id:'shop',l:'🛍️ Shop'},{id:'cart',l:'🛒 Panier'},{id:'orders',l:'🧾 Orders'}];curTab='shop'}else{tabs=[{id:'shop',l:'🛍️ Shop'},{id:'cart',l:'🛒 Panier'},{id:'myorders',l:'📦 My'}];curTab='shop'}
+  document.getElementById('tabs').innerHTML=tabs.map(t=>`<div class="tab ${curTab===t.id?'active':''}" onclick="goTab('${t.id}')">${t.l}</div>`).join('');
+  updateCart();goTab(curTab);
+}
+function goTab(id){curTab=id;document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));const el=document.querySelector(`.tab[onclick="goTab('${id}')"]`);if(el)el.classList.add('active');const c=document.getElementById('content');if(id==='dashboard')drawDash(c);else if(id==='products')drawProds(c);else if(id==='orders')drawOrders(c);else if(id==='users')drawUsers(c);else if(id==='add')drawAdd(c);else if(id==='settings')drawSettings(c);else if(id==='shop')drawShop(c);else if(id==='cart')drawCart(c);else if(id==='myorders')drawMyOrders(c);}
+function updateCart(){document.getElementById('cartCount').textContent=CART.length}
+function drawDash(c){const total=prods.reduce((s,p)=>s+Number(p.sell)*Number(p.qty),0);const sold=orders.reduce((s,o)=>s+Number(o.total||0),0);c.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px"><div class="card"><b>${prods.length}</b><br><span style="font-size:11px;color:#888">Stock</span></div><div class="card"><b>${orders.length}</b><br><span style="font-size:11px;color:#888">Orders</span></div><div class="card"><b>${total.toLocaleString()}</b><br><span style="font-size:11px;color:#888">Value</span></div><div class="card"><b>${sold.toLocaleString()} RWF</b><br><span style="font-size:11px;color:#888">Sold</span></div></div><div class="card"><h3>✅ V5.1 ONLINE + OFFLINE</h3><p>${isOnline?'● ONLINE - Data irahita ihuza':'● OFFLINE - Data irabikwa, izahuza iyo internet igarutse'}<br><br>Staff yakomeza gukora n'iyo Admin ari offline!</p></div>`}
+function drawProds(c){if(!prods.length){c.innerHTML='<p class="small">Loading Online...</p>';return}c.innerHTML=prods.map(p=>`<div class="card"><h3>${p.name}</h3><p>${p.sell} RWF - Stock: <b>${p.qty}</b></p>${me.role==='admin'?`<button class="edit" onclick="editProd('${p.id}')">Edit</button><button class="del" onclick="delProd('${p.id}')">Siba</button>`:''}</div>`).join('')}
+function drawAdd(c,edit=null){c.innerHTML=`<div class="card" style="border:2px solid #000"><h3>${edit?'✏️ Hindura':'➕ Ongeramo Online'}</h3><br><input id="pn" placeholder="Izina *" value="${edit?edit.name:''}"><div class="row2"><input id="pb" type="number" placeholder="Igura" value="${edit?edit.buy:''}"><input id="ps" type="number" placeholder="Igurisha *" value="${edit?edit.sell:''}"></div><div class="row2"><input id="pq" type="number" placeholder="Stock *" value="${edit?edit.qty:''}"><input id="pi" placeholder="Image URL" value="${edit?edit.img:''}"></div><textarea id="pd" placeholder="Desc">${edit?edit.desc||'':''}</textarea><button class="btn" onclick="${edit?`updProd('${edit.id}')`:'newProd()'}">Bika Online</button></div>`}
+async function newProd(){const name=document.getElementById('pn').value.trim(),buy=document.getElementById('pb').value.trim(),sell=document.getElementById('ps').value.trim(),qty=document.getElementById('pq').value.trim(),img=document.getElementById('pi').value.trim(),desc=document.getElementById('pd').value.trim();if(!name||!sell||!qty)return;await db.collection('products').add({name,buy:Number(buy),sell:Number(sell),qty:Number(qty),img,desc,created:Date.now()});alert('✅ Byongewe Online!');goTab('products')}
+async function delProd(id){if(!confirm('Gusiba?'))return;await db.collection('products').doc(id).delete()}
+async function editProd(id){const p=prods.find(x=>x.id===id);goTab('add');setTimeout(()=>drawAdd(document.getElementById('content'),p),100)}
+async function updProd(id){const name=document.getElementById('pn').value.trim(),sell=document.getElementById('ps').value.trim(),qty=document.getElementById('pq').value.trim();await db.collection('products').doc(id).update({name,sell:Number(sell),qty:Number(qty)});goTab('products')}
+function drawOrders(c){if(!orders.length){c.innerHTML='<p class="small">Nta order - Staff nacuruza zizaza hano LIVE!</p>';return}c.innerHTML=orders.map(o=>`<div class="card"><h3>Order - ${o.total?.toLocaleString()} RWF</h3><p>${o.items?o.items.map(it=>`• ${it.name} x${it.qty} = ${it.total}`).join('<br>'):`${o.product}`}<br>By: <b>${o.by}</b> - ${o.status}<br>${o.date||''}</p><div style="display:flex;gap:6px;margin-top:8px">${me.role==='admin'?`<button style="flex:1;padding:8px;border-radius:10px;border:none;background:#000;color:#fff" onclick="updOrder('${o.id}','Approved')">Emeza</button><button style="flex:1;padding:8px;border-radius:10px;border:none;background:#e5e7eb" onclick="updOrder('${o.id}','Delivered')">Delivered</button><button style="flex:1;padding:8px;border-radius:10px;border:none;background:#fee2e2;color:#b91c1c" onclick="delOrder('${o.id}')">Siba</button>`:me.role==='staff'?`<button style="flex:1;padding:8px;border-radius:10px;border:none;background:#000;color:#fff" onclick="updOrder('${o.id}','Approved')">Emeza</button><button style="flex:1;padding:8px;border-radius:10px;border:none;background:#e5e7eb" onclick="updOrder('${o.id}','Delivered')">Delivered</button><span style="flex:1;font-size:10px;text-align:center;padding:8px;background:#f3f4f6;border-radius:10px">NTUSHOBORA GUSIBA</span>`:''}</div></div>`).join('')}
+function drawMyOrders(c){const my=orders.filter(o=>o.by===me.u);if(!my.length){c.innerHTML='<p class="small">Nta order</p>';return}c.innerHTML=my.map(o=>`<div class="card"><h3>${o.total?.toLocaleString()} RWF</h3><p>${o.items?o.items.map(it=>it.name+' x'+it.qty).join(', '):''}<br>${o.status}</p></div>`).join('')}
+async function updOrder(id,s){await db.collection('orders').doc(id).update({status:s})}
+async function delOrder(id){if(me.role!=='admin'){alert('Staff ntishobora gusiba');return}await db.collection('orders').doc(id).delete()}
+function drawUsers(c){if(me.role!=='admin'){c.innerHTML='<p class="small">Admin only</p>';return}c.innerHTML=usersCache.map(u=>`<div class="card"><h3>${u.name} - ${u.u}</h3><p>Role: ${u.role} | Pass: ${u.p}</p>${u.u!=='admin'?`<button class="del" onclick="remUser('${u.docId}')">Siba</button>`:''}</div>`).join('')+`<div class="card" style="margin-top:10px;border:2px solid #000"><h3>➕ User</h3><input id="uu" placeholder="Username"><input id="up" placeholder="Password"><select id="ur"><option value="staff">Staff</option><option value="client">Client</option><option value="admin">Admin</option></select><button class="btn" onclick="addUser()">Bika Online</button></div>`}
+async function addUser(){const u=document.getElementById('uu').value.trim(),p=document.getElementById('up').value.trim(),r=document.getElementById('ur').value;await db.collection('users').add({u,p,role:r,name:u})}
+async function remUser(docId){await db.collection('users').doc(docId).delete()}
+function drawSettings(c){c.innerHTML=`<div class="card" style="border:2px solid #000"><h3>🔐 Password Admin</h3><input id="oldp" type="password" placeholder="Ya kera"><input id="newp" type="password" placeholder="Nshya"><button class="btn" onclick="changePass()">Hindura</button></div><div class="card"><h3>🌐 V5.1 ONLINE + OFFLINE</h3><p>✅ Staff ikomeza n'iyo Admin ari offline<br>✅ Data ibikwa muri phone</p></div>`}
+async function changePass(){const oldp=document.getElementById('oldp').value.trim(),np=document.getElementById('newp').value.trim();if(oldp!==me.p){alert('Nabi');return}await db.collection('users').doc(me.docId).update({p:np});me.p=np;alert('Yahindutse')}
+function drawShop(c){if(!prods.length){c.innerHTML='<p class="small">Loading Online...</p>';return}let html='';if(CART.length>0){const tot=CART.reduce((s,it)=>s+it.total,0);html+=`<div class="cart-box"><b>🛒 Panier (${CART.length}) - ${tot.toLocaleString()} RWF</b><div style="margin-top:8px">${CART.map((it,i)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span>${it.name} x${it.qty}</span><span>${it.total.toLocaleString()} RWF <span onclick="remCart(${i})" style="color:#ef4444;cursor:pointer">✕</span></span></div>`).join('')}<button class="btn btn-green" style="margin-top:10px" onclick="checkout()">✅ Emeza Order</button></div></div>`;}html+=`<div class="shop-grid">`+prods.map(p=>`<div class="card"><h3>${p.name}</h3><p>Stock: <b>${p.qty}</b><br><b>${p.sell} RWF</b></p><button class="btn" style="margin-top:8px;padding:8px;font-size:12px" onclick="addCart('${p.id}')">➕ Panier</button></div>`).join('')+`</div><div class="small">${isOnline?'● ONLINE - Staff na Admin mubona kimwe':'● OFFLINE - Staff ikomeza, izahuza iyo ugarutse'}</div>`;c.innerHTML=html;}
+function drawCart(c){if(CART.length===0){c.innerHTML='<div class="card"><h3>Panier ubusa</h3><p>Jya muri Shop kanda ➕ Inkweto + Urusunda + Amashu</p></div><button class="btn btn-sec" onclick="goTab(\'shop\')">← Shop</button>';return}const tot=CART.reduce((s,it)=>s+it.total,0);c.innerHTML=`<div class="card" style="border:2px solid #000"><h3>🛒 Panier (${CART.length})</h3>${CART.map((it,i)=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee"><span><b>${it.name}</b><br>${it.qty} x ${it.price}</span><span><b>${it.total.toLocaleString()}</b><br><span onclick="remCart(${i})" style="color:red;font-size:11px;cursor:pointer">Siba</span></span></div>`).join('')}<div style="display:flex;justify-content:space-between;font-weight:900;padding-top:12px"><span>Total:</span><span>${tot.toLocaleString()} RWF</span></div><button class="btn" style="margin-top:12px" onclick="checkout()">✅ Emeza - ${tot.toLocaleString()} RWF</button></div>`;}
+function addCart(id){const p=prods.find(x=>x.id===id);let q=prompt(`Ingano ya ${p.name}\nStock: ${p.qty}:`, "1"); if(q===null)return; q=parseInt(q); if(isNaN(q)||q<=0||q>p.qty){alert('Nabi');return}const ex=CART.findIndex(it=>it.id===id);if(ex>-1){CART[ex].qty+=q;CART[ex].total=CART[ex].qty*CART[ex].price}else{CART.push({id:p.id,name:p.name,price:Number(p.sell),qty:q,total:Number(p.sell)*q})}updateCart();drawShop(document.getElementById('content'));}
+function remCart(i){CART.splice(i,1);updateCart();if(curTab==='cart')drawCart(document.getElementById('content'));else drawShop(document.getElementById('content'));}
+async function checkout(){
+  if(CART.length===0)return;
+  const total=CART.reduce((s,it)=>s+it.total,0);
+  if(!confirm(`Emeza?\n${CART.map(it=>`${it.name} x${it.qty}`).join('\n')}\nTOTAL: ${total} RWF`))return;
+  for(let it of CART){const pr=prods.find(p=>p.id===it.id);if(pr.qty<it.qty){alert(`Stock ntihagije: ${pr.name}`);return}}
+  for(let it of CART){const pr=prods.find(p=>p.id===it.id);await db.collection('products').doc(it.id).update({qty: pr.qty - it.qty});}
+  await db.collection('orders').add({items:CART,total:total,by:me.u,status:'Pending',date:new Date().toLocaleString(),created:Date.now()});
+  alert(`✅ Order ya ${total.toLocaleString()} RWF - ${isOnline?'Admin ahita abibona':'Offline - izahuza iyo online!'}`);
+  CART=[];updateCart();goTab('orders');
+}
+window.onload=async()=>{
+  try{await seedIfEmpty();}catch(e){console.log('seed fail',e)}
+  const sess=localStorage.getItem('v5_sess');
+  if(sess){me=JSON.parse(sess);try{listenData();render();}catch(e){}}
+}
+</script></body></html>
